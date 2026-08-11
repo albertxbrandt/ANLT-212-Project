@@ -1,3 +1,5 @@
+# AI GENERATED SLOP tread carefully.
+
 # Simple Start - React + Flask
 
 A minimal full-stack web application template with React frontend and Flask backend. A blank slate to build from.
@@ -24,8 +26,6 @@ simple-start/
 │   ├── Process.py        # Base Process class
 │   ├── Component.py      # Base Component class
 │   ├── Page.py           # Base Page class
-│   ├── Player.py         # Example model
-│   └── example_usage.py  # Example code
 ├── tests/                # Test files
 └── package.json          # Root scripts
 ```
