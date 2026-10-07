@@ -5,11 +5,14 @@ frontend/.env.local
 
 # Backend
 backend/.env
-backend/__pycache__/
-backend/*.pyc
+backend/data/
 backend/venv/
 backend/.venv/
 backend/env/
+
+# Python
+**/__pycache__/
+*.pyc
 
 # IDE
 .vscode/

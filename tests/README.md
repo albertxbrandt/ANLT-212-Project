@@ -1,41 +1,16 @@
 # Tests
 
-Simple starter tests for the backend and frontend.
-
-## Backend Tests
-
-Run Python backend tests:
+Unit tests run without starting Flask or Vite.
 
 ```bash
-cd ..
-python -m pytest tests/test_backend.py -v
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+python -m pytest tests -q
 ```
 
-Or run directly with Python:
+From the repository root, `npm test` runs these tests and the frontend Vitest suite. `test.bat` does that and then builds the frontend.
 
-```bash
-python tests/test_backend.py
-```
+- `test_rules.py` — replenishment math
+- `test_inventory.py` — items, shelf life, waste, and insights on SQLite
+- `test_backend.py` — HTTP status codes
 
-### Requirements
-
-Install pytest for more advanced testing:
-
-```bash
-pip install pytest
-```
-
-## Frontend Tests
-
-For now, basic JavaScript tests are provided. For more advanced testing with React Testing Library:
-
-```bash
-cd frontend
-npm install -D vitest @testing-library/react @testing-library/jest-dom
-npm test
-```
-
-## Test Files
-
-- `test_backend.py` - Tests Flask API endpoints (health, hello, CORS)
-- `test_frontend.js` - Basic frontend tests
+Frontend tests live in `frontend/src/test/` and run with `npm test` inside `frontend/`.

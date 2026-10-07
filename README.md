@@ -1,189 +1,88 @@
-# AI GENERATED SLOP tread carefully.
+# PantryPal
 
-# Simple Start - React + Flask
+A household inventory tracker. Record what is in the fridge, freezer, and pantry, follow each item from stocking through use or waste, and see what is about to expire or run out.
 
-A minimal full-stack web application template with React frontend and Flask backend. A blank slate to build from.
+## Requirements
 
-## Project Structure
-
-```
-simple-start/
-├── frontend/              # React application
-│   ├── src/
-│   │   ├── App.jsx        # Main React component
-│   │   ├── App.css        # Application styles
-│   │   ├── main.jsx       # Entry point
-│   │   ├── index.css      # Global styles
-│   │   └── components/    # Add your components here
-│   ├── package.json
-│   └── vite.config.ts
-├── backend/              # Flask Python application
-│   ├── src/
-│   │   └── app.py        # Flask app with basic endpoints
-│   ├── requirements.txt  # Python dependencies
-│   └── .env              # Environment variables
-├── interface/            # Python interface layer (starter templates)
-│   ├── Process.py        # Base Process class
-│   ├── Component.py      # Base Component class
-│   ├── Page.py           # Base Page class
-├── tests/                # Test files
-└── package.json          # Root scripts
-```
-
-## Features
-
-- **React + Vite** - Fast, modern frontend development
-- **Flask** - Lightweight Python web framework  
-- **CORS Enabled** - Frontend can communicate with backend
-- **Minimal Setup** - Ready to customize and build upon
-- **Python Interface** - Starter templates for Process, Component, Page patterns
-
-## Quick Start
-
-### Prerequisites
-- Node.js 16+ and npm
 - Python 3.8+
+- Node.js 16+ and npm
 
-### Backend Setup
+The database is SQLite. The file is created at `backend/data/household.db` the first time the API starts. No separate database server is required.
 
-1. Install Python dependencies:
+## Run both apps
+
+On Windows, double-click or run:
+
+```bat
+start.bat
+```
+
+That opens the API on http://localhost:5000 and the React app on http://localhost:5173.
+
+On macOS or Linux:
+
 ```bash
-cd backend
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
+cd backend && python src/app.py
 ```
 
-2. Create `.env` file from template:
 ```bash
-cp .env.example .env
+cd frontend && npm install && npm run dev
 ```
 
-3. Update `.env` with your MongoDB connection string:
-```
-MONGODB_URI=mongodb://localhost:27017/simple_start
-FLASK_ENV=development
-FLASK_DEBUG=True
-```
+From the project root, `npm install` then `npm run dev` starts both if `python` is on your PATH.
 
-### Frontend Setup
+The first launch loads a demo household so the home screen and trends are not empty. Set `INVENTORY_SEED=0` to start blank. See `backend/.env.example`.
 
-1. Install Node dependencies:
+## Test the build
+
+Unit tests do not need the servers to be running.
+
 ```bash
-cd frontend
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 npm install
-```
-
-## Development
-
-Run both backend (Flask) and frontend (React) concurrently:
-
-```bash
-npm run dev
-```
-
-This will:
-- Start Flask backend on `http://localhost:5000`
-- Start React frontend on `http://localhost:5173`
-- React proxy sends `/api/*` requests to Flask backend
-
-### Individual Commands
-
-- **Backend only**: `npm run dev:backend`
-  - Flask runs on port 5000 with hot reload
-  
-- **Frontend only**: `npm run dev:frontend`
-  - React runs on port 5173 with Vite
-
-## Architecture
-
-The application uses a three-layer architecture:
-
-1. **Process** - Discrete business logic operations
-   - Located in `interface/Process.py`
-   - Execute specific tasks
-   - Can be combined into workflows
-
-2. **Component** - Logical containers for Processes
-   - Located in `interface/Component.py`
-   - Manage multiple processes
-   - Connect frontend and backend
-   - Maintain component state
-
-3. **Page** - Top-level UI containers with Tabs
-   - Located in `interface/Page.py`
-   - Organize components into tabs
-   - Manage navigation and active tab
-
-## API Endpoints
-
-### Health Check
-```
-GET /api/health
-```
-Returns backend status and timestamp.
-
-### Get Page Structure
-```
-GET /api/pages/import
-```
-Returns the complete page structure with tabs, components, and processes.
-
-### Execute Process
-```
-POST /api/execute-process
-Content-Type: application/json
-
-{
-  "tabName": "IESP Import",
-  "componentName": "IESPImporter",
-  "processName": "get_files_from_folder",
-  "data": { "folder_path": "/path/to/files" }
-}
-```
-
-Returns updated component state with process results.
-
-## Example Usage
-
-See `backend/interface/example_usage.py` for an example of building a Page with tabs, components, and processes.
-
-## Build for Production
-
-```bash
+npm test
 npm run build
 ```
 
-This builds the React frontend to `frontend/dist/`.
+`npm test` runs the Python unit tests and the Vitest unit tests. `npm run check` runs those tests and then builds the frontend. On Windows, `test.bat` does the same install, test, and build steps.
 
-## MongoDB Setup
+- `tests/test_rules.py` checks the replenishment math with no database.
+- `tests/test_inventory.py` checks stocking, use, waste, moves, and insights on a private SQLite database.
+- `tests/test_backend.py` checks HTTP status codes and a seeded API.
+- `frontend/src/test/` checks formatting, the API client, and the home screen.
 
-### Local MongoDB
-```bash
-# Windows
-mongod
+## What the prediction does
 
-# macOS/Linux
-brew services start mongodb-community
+Daily use is the amount consumed in the last 28 days, divided by the number of days from the first of those uses through today. Days of cover is the quantity on hand divided by that rate. PantryPal suggests a purchase when the quantity is below the product's par level, or when fewer than 7 days of cover remain. The suggested amount is enough to reach par, or a 14-day supply, whichever is larger.
+
+## Layout
+
+```
+frontend/     React screens
+backend/      Flask routes, inventory rules, SQLite
+plans/        Dated plans
+tests/        Python unit tests
+start.bat     Starts the API and the UI
+test.bat      Runs unit tests and the frontend build
 ```
 
-### Remote MongoDB
-Update `MONGODB_URI` in `.env` with your connection string:
-```
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database_name
-```
+`backend/src/db.py` opens SQLite and creates tables. `backend/src/inventory.py` applies the household rules. `backend/src/app.py` only translates HTTP into those rules. The React app calls the API through `frontend/src/api.js`.
 
-## Troubleshooting
+## API
 
-### Backend not connecting
-- Check if Flask is running: `http://localhost:5000/api/health`
-- Verify `MONGODB_URI` in `.env`
-- Check Python version: `python --version` (should be 3.8+)
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | Process is up |
+| GET, POST | `/api/locations` | List or add a place |
+| PUT, DELETE | `/api/locations/<id>` | Rename or remove a place |
+| GET, POST | `/api/products` | List or add a product |
+| PUT, DELETE | `/api/products/<id>` | Edit or remove a product |
+| GET | `/api/inventory?location_id=` | Items currently stored |
+| POST | `/api/inventory/stock` | Add an item |
+| POST | `/api/inventory/consume` | Use some of an item |
+| POST | `/api/inventory/waste` | Throw some of an item away |
+| POST | `/api/inventory/move` | Move an item |
+| GET | `/api/insights` | Expiry, restock, use, and waste |
 
-### Frontend can't reach backend
-- Ensure both are running: Flask on 5000, React on 5173
-- Check browser console for CORS errors
-- Verify `/api` proxy in `frontend/vite.config.ts`
-
-### MongoDB connection error
-- Check if MongoDB is running
-- Verify connection string in `.env`
-- Test connection: `mongosh` or `mongo` CLI
+Errors return `{ "error": "..." }` with status 400, 404, or 409.
