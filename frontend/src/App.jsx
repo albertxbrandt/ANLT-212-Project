@@ -1,78 +1,68 @@
-import { useState, useEffect } from 'react'
-import './App.css'
-import axios from 'axios'
+import { useEffect, useState } from "react"
+import { api, messageFromError } from "./api.js"
+import ErrorBanner from "./components/ErrorBanner.jsx"
+import Goods from "./views/Goods.jsx"
+import Home from "./views/Home.jsx"
+import Inventory from "./views/Inventory.jsx"
+import Places from "./views/Places.jsx"
+import Trends from "./views/Trends.jsx"
+import "./App.css"
 
-function App() {
-  const [health, setHealth] = useState(null)
-  const [greeting, setGreeting] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+const VIEWS = [
+  ["home", "Home"],
+  ["inventory", "Inventory"],
+  ["places", "Places"],
+  ["goods", "Goods"],
+  ["trends", "Trends"],
+]
 
-  // Check backend health and get greeting on mount
+export default function App() {
+  const [view, setView] = useState("home")
+  const [locations, setLocations] = useState([])
+  const [locationError, setLocationError] = useState("")
+
+  function refreshLocations() {
+    api.getLocations()
+      .then((rows) => {
+        setLocations(rows)
+        setLocationError("")
+      })
+      .catch((error) => setLocationError(messageFromError(error)))
+  }
+
   useEffect(() => {
-    const initApp = async () => {
-      try {
-        const healthResponse = await axios.get('/api/health')
-        setHealth(healthResponse.data)
-        
-        const helloResponse = await axios.get('/api/hello')
-        setGreeting(helloResponse.data)
-        
-        setError(null)
-      } catch (err) {
-        setError('Failed to connect to backend')
-        console.error('Init error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    initApp()
+    refreshLocations()
   }, [])
 
   return (
-    <>
-      <header className="app-header">
-        <h1>Simple Start</h1>
-        <p className="subtitle">A blank slate to build from</p>
+    <div className="app">
+      <header className="mast">
+        <div>
+          <p className="eyebrow">Household inventory</p>
+          <h1>PantryPal</h1>
+          <p className="tagline">What is in the house, how long it will keep, and what to buy before it runs out.</p>
+        </div>
+        <nav className="nav" aria-label="Sections">
+          {VIEWS.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={view === id ? "page" : undefined}
+              onClick={() => setView(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
       </header>
-      
-      <main className="app-main">
-        {loading && <div className="loading">Loading...</div>}
-        
-        {error && (
-          <div className="error-message">
-            <p>⚠ {error}</p>
-          </div>
-        )}
-        
-        {!loading && !error && (
-          <div className="content">
-            <section className="card">
-              <h2>Backend Status</h2>
-              {health && (
-                <div className="info">
-                  <p><strong>Status:</strong> {health.status}</p>
-                  <p><strong>Timestamp:</strong> {new Date(health.timestamp).toLocaleString()}</p>
-                </div>
-              )}
-            </section>
-            
-            <section className="card">
-              <h2>API Response</h2>
-              {greeting && (
-                <div className="info">
-                  <p><strong>Message:</strong> {greeting.message}</p>
-                  <p><strong>Version:</strong> {greeting.version}</p>
-                </div>
-              )}
-            </section>
-          </div>
-        )}
+      <main>
+        <ErrorBanner message={locationError} />
+        {view === "home" && <Home />}
+        {view === "inventory" && <Inventory locations={locations} />}
+        {view === "places" && <Places locations={locations} onChange={refreshLocations} />}
+        {view === "goods" && <Goods locations={locations} />}
+        {view === "trends" && <Trends />}
       </main>
-    </>
+    </div>
   )
 }
-
-export default App
-

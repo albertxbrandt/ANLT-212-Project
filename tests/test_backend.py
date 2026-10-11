@@ -1,70 +1,97 @@
-"""
-Backend tests for Flask API endpoints
-"""
-import sys
-import os
-from pathlib import Path
+"""HTTP tests. Rule details are covered in test_inventory.py and test_rules.py."""
 
-# Add backend src to path
-backend_src = Path(__file__).parent.parent / "backend" / "src"
-sys.path.insert(0, str(backend_src))
+import pytest
 
-from app import app
+from app import create_app
 
 
-def test_health_endpoint():
-    """Test the /api/health endpoint"""
-    with app.test_client() as client:
-        response = client.get('/api/health')
-        
-        assert response.status_code == 200
-        data = response.get_json()
-        assert 'status' in data
-        assert data['status'] == 'healthy'
-        assert 'timestamp' in data
+@pytest.fixture
+def client(tmp_path):
+    application = create_app({
+        "DATABASE_PATH": str(tmp_path / "api.db"),
+        "SEED": False,
+    })
+    application.config["TESTING"] = True
+    return application.test_client()
 
 
-def test_hello_endpoint():
-    """Test the /api/hello endpoint"""
-    with app.test_client() as client:
-        response = client.get('/api/hello')
-        
-        assert response.status_code == 200
-        data = response.get_json()
-        assert 'message' in data
-        assert data['message'] == 'Hello from the backend!'
-        assert 'version' in data
+def test_health_endpoint(client):
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["status"] == "healthy"
+    assert "timestamp" in body
 
 
-def test_cors_headers():
-    """Test that CORS headers are present"""
-    with app.test_client() as client:
-        response = client.get('/api/health')
-        
-        # CORS should allow any origin in development
-        assert 'Access-Control-Allow-Origin' in response.headers
+def test_cors_header(client):
+    response = client.get("/api/health")
+    assert "Access-Control-Allow-Origin" in response.headers
 
 
-if __name__ == '__main__':
-    # Run tests manually
-    print("Running backend tests...")
-    
-    try:
-        test_health_endpoint()
-        print("✓ test_health_endpoint passed")
-    except AssertionError as e:
-        print(f"✗ test_health_endpoint failed: {e}")
-    
-    try:
-        test_hello_endpoint()
-        print("✓ test_hello_endpoint passed")
-    except AssertionError as e:
-        print(f"✗ test_hello_endpoint failed: {e}")
-    
-    try:
-        test_cors_headers()
-        print("✓ test_cors_headers passed")
-    except AssertionError as e:
-        print(f"✗ test_cors_headers failed: {e}")
-    
-    print("\nDone!")
+def test_stock_consume_and_reject_bad_json(client):
+    place = client.post("/api/locations", json={"name": "Fridge", "kind": "fridge"})
+    product = client.post("/api/products", json={
+        "name": "Milk",
+        "category": "Dairy",
+        "unit": "gal",
+        "shelf_life_days": 10,
+        "par_quantity": 1,
+        "preferred_location_id": place.get_json()["id"],
+    })
+    assert product.status_code == 201
+    lot = client.post("/api/inventory/stock", json={
+        "product_id": product.get_json()["id"],
+        "location_id": place.get_json()["id"],
+        "quantity": 1,
+        "added_on": "2026-10-01",
+    })
+    assert lot.status_code == 201
+    assert lot.get_json()["expires_on"] == "2026-10-11"
+
+    used = client.post("/api/inventory/consume", json={"lot_id": lot.get_json()["id"], "quantity": 1})
+    assert used.status_code == 200
+    assert used.get_json()["status"] == "depleted"
+
+    rejected = client.post("/api/inventory/stock", data="nope", content_type="text/plain")
+    assert rejected.status_code == 400
+    assert "error" in rejected.get_json()
+
+
+def test_missing_lot_and_delete_guard(client):
+    missing = client.post("/api/inventory/waste", json={"lot_id": 5, "quantity": 1})
+    assert missing.status_code == 404
+
+    place = client.post("/api/locations", json={"name": "Pantry", "kind": "pantry"})
+    product = client.post("/api/products", json={
+        "name": "Rice",
+        "category": "Pantry",
+        "unit": "lb",
+        "shelf_life_days": 365,
+        "par_quantity": 1,
+        "preferred_location_id": place.get_json()["id"],
+    })
+    client.post("/api/inventory/stock", json={
+        "product_id": product.get_json()["id"],
+        "location_id": place.get_json()["id"],
+        "quantity": 1,
+    })
+    blocked = client.delete(f"/api/products/{product.get_json()['id']}")
+    assert blocked.status_code == 409
+    removed = client.delete("/api/locations/999")
+    assert removed.status_code == 404
+
+
+def test_seeded_database_reports_a_shortage(tmp_path):
+    application = create_app({
+        "DATABASE_PATH": str(tmp_path / "demo.db"),
+        "SEED": True,
+    })
+    client = application.test_client()
+    response = client.get("/api/insights")
+    assert response.status_code == 200
+    summary = response.get_json()["summary"]
+    assert summary["expiring_soon"] >= 1
+    assert summary["restock_needed"] >= 1
+    listed = client.get("/api/inventory")
+    assert listed.status_code == 200
+    assert len(listed.get_json()) >= 1
